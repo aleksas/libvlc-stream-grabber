@@ -1,0 +1,3 @@
+Under windows use lib tool included in Visual Studio to generate a lib file from vlccore.def and vlc.def.
+See make_lib.bat for details and run it. It is better if you open a shell window and copy the commands into it and run those.
+

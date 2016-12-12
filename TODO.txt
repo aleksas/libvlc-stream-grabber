@@ -1,0 +1,8 @@
+Include files have to be copiet from vlc source archive, libvlccore and libvlc binaries from build archives and lib files for linking should be generated. 
+For details see following files:
+
+	include\vlc-2.2\TODO.txt
+	lib\vlc-2.2\TODO.txt
+	bin\TODO.txt
+	
+	

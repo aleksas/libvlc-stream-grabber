@@ -1,0 +1,2 @@
+Download source code from http://download.videolan.org/pub/videolan/vlc/2.2.4/vlc-2.2.4.tar.xz .
+Extract contents of the include folder here.

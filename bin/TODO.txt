@@ -1,0 +1,2 @@
+Download http://download.videolan.org/pub/videolan/vlc/2.2.4/win32/vlc-2.2.4-win32.zip and copy libvlc.dll and libvlccore.dll together with plugins subdirectory into x86 directory.
+Download http://download.videolan.org/pub/videolan/vlc/2.2.4/win64/vlc-2.2.4-win64.zip and copy libvlc.dll and libvlccore.dll together with plugins subdirectory into x64 directory.
