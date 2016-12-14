@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
 	vlc_thread_t videoFrameReaderThread;
 	vlc_thread_t audioSampleReaderThread;
 	libvlc_media_t * pMedia;
-	bool paceControl = false;
+	bool paceControl = true;
 
 	void * pVideoThreadResult;
 	void * pAudioThreadResult;
@@ -43,25 +43,39 @@ FINALLY:
 void * VideoFrameReader(void * pData)
 {
 	VlcStreamGrabber * pGrabber = (VlcStreamGrabber *) pData;
+	bool locked;
 	int r_i;
 
-	while(StreamGrabberGetVideoFrame(pGrabber))
+	do
 	{
-		r_i = pGrabber->audioBufferReadIndex;
-		
-		pGrabber->pVideoBuffers[r_i];
+		StreamGrabberLockVideoBuffer(pGrabber); locked = true;
+
+		if (!StreamGrabberGetVideoFrame(pGrabber)) break;
+
+		r_i = pGrabber->videoBufferReadIndex;
 
 		printf(
-			"V t:%lld w:%d h:%d l:%d bpp:%d fr:%d/%d\r\n",
-			(pGrabber->videoFrameTimestamps[r_i] - pGrabber->videoStartTimestamp) / 1000,
+			"V t:%lld w:%d h:%d l:%d bpp:%d fr:%d/%d addr:%lld size:%d\r\n",
+			(pGrabber->videoFrameTimestamps[r_i] - pGrabber->videoStartTimestamp),
 			pGrabber->videoFormats[r_i].i_visible_width,
 			pGrabber->videoFormats[r_i].i_visible_height,
 			pGrabber->videoFormats[r_i].i_height,
 			pGrabber->videoFrameBitsPerPixel[r_i],
 			pGrabber->videoTracks[r_i].i_frame_rate_num,
-			pGrabber->videoTracks[r_i].i_frame_rate_den
+			pGrabber->videoTracks[r_i].i_frame_rate_den,
+			(long long int)pGrabber->pVideoBuffers[r_i],
+			pGrabber->videoBufferSizes[r_i]
 		);
-	}
+
+		// copy data to your buffer here
+
+		StreamGrabberUnlockVideoBuffer(pGrabber); locked = false;
+
+		// process frame here
+
+	} while(true);
+	
+	if (locked) StreamGrabberUnlockVideoBuffer(pGrabber);
 
 	return NULL;
 }
@@ -69,21 +83,37 @@ void * VideoFrameReader(void * pData)
 void * AudioSampleReader(void * pData)
 {
 	VlcStreamGrabber * pGrabber = (VlcStreamGrabber *) pData;
+	bool locked;
 	int r_i;
 
-	while(StreamGrabberGetAudioSample(pGrabber))
+	do
 	{
+		StreamGrabberLockAudioBuffer(pGrabber); locked = true;
+
+		if(!StreamGrabberGetAudioSample(pGrabber)) break;
+
 		r_i = pGrabber->audioBufferReadIndex;
 
 		printf(
-			"A t:%lld c:%d r:%d s:%d bps:%d\r\n",
-			(pGrabber->audioSampleTimestamps[r_i] - pGrabber->audioStartTimestamp) / 1000,
+			"A t:%lld ch:%d r:%d sc:%d bps:%d addr:%lld size:%d\r\n",
+			(pGrabber->audioSampleTimestamps[r_i] - pGrabber->audioStartTimestamp),
 			pGrabber->audioSampleChannels[r_i],
 			pGrabber->audioSampleRate[r_i],
 			pGrabber->audioSampleSampleCounts[r_i],
-			pGrabber->audioSampleBitsPerSample[r_i]
+			pGrabber->audioSampleBitsPerSample[r_i],
+			(long long int) pGrabber->pAudioBuffers[r_i],
+			pGrabber->audioBufferSizes[r_i]
 		);
-	}
+		
+		// copy data to your buffer here
+
+		StreamGrabberUnlockAudioBuffer(pGrabber); locked = false;
+		
+		// process sample here
+
+	} while (true);
+
+	if (locked) StreamGrabberUnlockAudioBuffer(pGrabber);
 
 	return NULL;
 }

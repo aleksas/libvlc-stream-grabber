@@ -15,6 +15,8 @@ typedef struct VlcStreamGrabber_
 	int videoBufferWriteIndex;
 	
 	bool noVideo;
+	bool videoBufferLocked;
+	bool videoBufferWriting;
 	bool videoFrameRequested;
 	vlc_sem_t videoFrameRequestSemaphore;
 	vlc_sem_t videoFrameReadySemaphore;
@@ -28,7 +30,7 @@ typedef struct VlcStreamGrabber_
 	size_t videoBufferSizes[2];
 	int64_t videoFrameTimestamps[2];
 	int64_t videoStartTimestamp;
-	bool videoBufferRead[2];
+	bool videoBufferWasRead[2];
 	
 
 	int audioBufferReadIndex;
@@ -36,6 +38,8 @@ typedef struct VlcStreamGrabber_
 	
 	bool noAudio;
 	bool audioSampleRequested;
+	bool audioBufferLocked;
+	bool audioBufferWriting;
 	vlc_sem_t audioSampleRequestSemaphore;
 	vlc_sem_t audioSampleReadySemaphore;
     libvlc_audio_track_t audioTracks[2];
@@ -48,7 +52,7 @@ typedef struct VlcStreamGrabber_
 	size_t audioBufferSizes[2];
 	int64_t audioSampleTimestamps[2];
 	int64_t audioStartTimestamp;
-	bool audioBufferRead[2];
+	bool audioBufferWasRead[2];
 	unsigned int channels;
 } VlcStreamGrabber;
 
@@ -58,5 +62,10 @@ int  StreamGrabberSetMedia(VlcStreamGrabber * pGrabber, libvlc_media_t * pMedia,
 
 bool StreamGrabberGetVideoFrame(VlcStreamGrabber * pGrabber);
 bool StreamGrabberGetAudioSample(VlcStreamGrabber * pGrabber);
+
+void StreamGrabberLockAudioBuffer(VlcStreamGrabber * pGrabber);
+void StreamGrabberUnlockAudioBuffer(VlcStreamGrabber * pGrabber);
+void StreamGrabberLockVideoBuffer(VlcStreamGrabber * pGrabber);
+void StreamGrabberUnlockVideoBuffer(VlcStreamGrabber * pGrabber);
 
 #endif //!VLC_STREAM_GRABBER_H_INCLUDED

@@ -44,13 +44,13 @@ int StreamGrabberInit(VlcStreamGrabber ** ppGrabber)
 	pGrabber->audioStartTimestamp = 0;
 	pGrabber->videoStartTimestamp = 0;
 	
-	pGrabber->audioBufferRead[0] = true;
-	pGrabber->audioBufferRead[1] = true;
+	pGrabber->audioBufferWasRead[0] = true;
+	pGrabber->audioBufferWasRead[1] = true;
 	pGrabber->audioBufferWriteIndex = 0;
 	pGrabber->audioBufferReadIndex = 1;
 	
-	pGrabber->videoBufferRead[0] = true;
-	pGrabber->videoBufferRead[1] = true;
+	pGrabber->videoBufferWasRead[0] = true;
+	pGrabber->videoBufferWasRead[1] = true;
 	pGrabber->videoBufferWriteIndex = 0;
 	pGrabber->videoBufferReadIndex = 1;
 
@@ -202,29 +202,53 @@ int StreamGrabberSetMedia(VlcStreamGrabber * pGrabber, libvlc_media_t * pMedia, 
 
 bool StreamGrabberGetVideoFrame(VlcStreamGrabber * pGrabber)
 {
-	int r_i;
-
+	int r_i, w_i;
 	if (pGrabber && !pGrabber->terminating)
 	{
 		if (pGrabber->paceControl)
 		{
+			bool simpleGet = false;;
+			
 			vlc_mutex_lock(&pGrabber->mutex);
-			pGrabber->videoFrameRequested = true;
+			r_i = pGrabber->videoBufferReadIndex;
+			w_i = pGrabber->videoBufferWriteIndex;
+
+			if (!pGrabber->videoBufferWriting && 
+				pGrabber->videoFrameTimestamps[w_i] > pGrabber->videoFrameTimestamps[r_i] &&
+				!pGrabber->videoBufferWasRead[w_i])
+			{
+				pGrabber->videoBufferReadIndex = w_i;
+				pGrabber->videoBufferWriteIndex = r_i;
+				
+				r_i = pGrabber->videoBufferReadIndex;
+				w_i = pGrabber->videoBufferWriteIndex;
+			}
+
+			simpleGet = !pGrabber->videoBufferWasRead[r_i];
+
 			vlc_mutex_unlock(&pGrabber->mutex);
 
-			vlc_sem_wait(&pGrabber->videoFrameReadySemaphore);
-			if (pGrabber->terminating || pGrabber->noVideo) return false;
+			if (!simpleGet)
+			{
+				vlc_mutex_lock(&pGrabber->mutex);
+				pGrabber->videoFrameRequested = true;
+				vlc_mutex_unlock(&pGrabber->mutex);
 
-			r_i = pGrabber->videoBufferReadIndex;
+				vlc_sem_wait(&pGrabber->videoFrameReadySemaphore);
+				if (pGrabber->terminating || pGrabber->noVideo) return false;
+			}
 		}
 		else
 		{
 			vlc_sem_post(&pGrabber->videoFrameRequestSemaphore);
 			vlc_sem_wait(&pGrabber->videoFrameReadySemaphore);
 			if (pGrabber->terminating || pGrabber->noVideo) return false;
-		
-			r_i = pGrabber->videoBufferReadIndex;
 		}
+			
+		vlc_mutex_lock(&pGrabber->mutex);
+		r_i = pGrabber->videoBufferReadIndex;
+		pGrabber->videoBufferWasRead[r_i] = true;
+		vlc_mutex_unlock(&pGrabber->mutex);
 
 		return true;
 	}
@@ -234,29 +258,53 @@ bool StreamGrabberGetVideoFrame(VlcStreamGrabber * pGrabber)
 
 bool StreamGrabberGetAudioSample(VlcStreamGrabber * pGrabber)
 {
-	int r_i;
-
+	int r_i, w_i;
 	if (pGrabber && !pGrabber->terminating)
 	{		
 		if (pGrabber->paceControl)
 		{
+			bool simpleGet = false;;
+			
 			vlc_mutex_lock(&pGrabber->mutex);
-			pGrabber->audioSampleRequested = true;
-			vlc_mutex_unlock(&pGrabber->mutex);
-
-			vlc_sem_wait(&pGrabber->audioSampleReadySemaphore);
-			if (pGrabber->terminating || pGrabber->noAudio) return false;
-
 			r_i = pGrabber->audioBufferReadIndex;
+			w_i = pGrabber->audioBufferWriteIndex;
+
+			if (!pGrabber->audioBufferWriting && 
+				pGrabber->audioSampleTimestamps[w_i] > pGrabber->audioSampleTimestamps[r_i] &&
+				!pGrabber->audioBufferWasRead[w_i])
+			{
+				pGrabber->audioBufferReadIndex = w_i;
+				pGrabber->audioBufferWriteIndex = r_i;
+				
+				r_i = pGrabber->audioBufferReadIndex;
+				w_i = pGrabber->audioBufferWriteIndex;
+			}
+
+			simpleGet = !pGrabber->audioBufferWasRead[r_i];
+			
+			vlc_mutex_unlock(&pGrabber->mutex);
+			
+			if (!simpleGet)
+			{
+				vlc_mutex_lock(&pGrabber->mutex);
+				pGrabber->audioSampleRequested = true;
+				vlc_mutex_unlock(&pGrabber->mutex);
+
+				vlc_sem_wait(&pGrabber->audioSampleReadySemaphore);
+				if (pGrabber->terminating || pGrabber->noAudio) return false;
+			}
 		}
 		else
 		{
 			vlc_sem_post(&pGrabber->audioSampleRequestSemaphore);
 			vlc_sem_wait(&pGrabber->audioSampleReadySemaphore);
 			if (pGrabber->terminating || pGrabber->noAudio) return false;
-		
-			r_i = pGrabber->audioBufferReadIndex;
 		}
+			
+		vlc_mutex_lock(&pGrabber->mutex);
+		r_i = pGrabber->audioBufferReadIndex;
+		pGrabber->audioBufferWasRead[r_i] = true;
+		vlc_mutex_unlock(&pGrabber->mutex);
 
 		return true;
 	}
@@ -265,6 +313,35 @@ bool StreamGrabberGetAudioSample(VlcStreamGrabber * pGrabber)
 		return false;
 	}
 }
+
+void StreamGrabberLockAudioBuffer(VlcStreamGrabber * pGrabber)
+{
+	vlc_mutex_lock( &pGrabber->mutex);
+	pGrabber->audioBufferLocked = true;
+	vlc_mutex_unlock( &pGrabber->mutex);
+}
+
+void StreamGrabberUnlockAudioBuffer(VlcStreamGrabber * pGrabber)
+{
+	vlc_mutex_lock( &pGrabber->mutex);
+	pGrabber->audioBufferLocked = false;
+	vlc_mutex_unlock( &pGrabber->mutex);
+}
+
+void StreamGrabberLockVideoBuffer(VlcStreamGrabber * pGrabber)
+{
+	vlc_mutex_lock( &pGrabber->mutex);
+	pGrabber->videoBufferLocked = true;
+	vlc_mutex_unlock( &pGrabber->mutex);
+}
+
+void StreamGrabberUnlockVideoBuffer(VlcStreamGrabber * pGrabber)
+{
+	vlc_mutex_lock( &pGrabber->mutex);
+	pGrabber->videoBufferLocked = false;
+	vlc_mutex_unlock( &pGrabber->mutex);
+}
+
 
 void VlcStreamGrabberUpdateTrackInfo(VlcStreamGrabber * pGrabber)
 {
@@ -335,6 +412,7 @@ void AudioPrerender(void * pAudioData, uint8_t ** ppPcmBuffer, size_t pcmBufferS
 	vlc_mutex_lock(&pGrabber->mutex);
 	int w_i = pGrabber->audioBufferWriteIndex;
 	int r_i = pGrabber->audioBufferReadIndex;
+	pGrabber->audioBufferWriting = true;
 	vlc_mutex_unlock(&pGrabber->mutex);
 
 	if (pGrabber->audioAllocatedBufferSizes[w_i] < pcmBufferSize)
@@ -342,8 +420,6 @@ void AudioPrerender(void * pAudioData, uint8_t ** ppPcmBuffer, size_t pcmBufferS
 		pGrabber->pAudioBuffers[w_i] = (uint8_t*) realloc(pGrabber->pAudioBuffers[w_i], pcmBufferSize * sizeof(uint8_t));
 		pGrabber->audioAllocatedBufferSizes[w_i] = pcmBufferSize;
 	}
-
-	pGrabber->audioBufferRead[w_i] = false;
 
 	*ppPcmBuffer = pGrabber->pAudioBuffers[w_i];
 }
@@ -360,6 +436,7 @@ void VideoPrerender(void  * pVideoData, uint8_t ** ppPixelBuffer, size_t frameBu
 	vlc_mutex_lock(&pGrabber->mutex);
 	int w_i = pGrabber->videoBufferWriteIndex;
 	int r_i = pGrabber->videoBufferReadIndex;
+	pGrabber->videoBufferWriting = true;
 	vlc_mutex_unlock(&pGrabber->mutex);
 
 	if (pGrabber->videoAllocatedBufferSizes[w_i] < frameBufferSize)
@@ -367,8 +444,6 @@ void VideoPrerender(void  * pVideoData, uint8_t ** ppPixelBuffer, size_t frameBu
 		pGrabber->pVideoBuffers[w_i] = (uint8_t*) realloc(pGrabber->pVideoBuffers[w_i], frameBufferSize * sizeof(uint8_t));
 		pGrabber->videoAllocatedBufferSizes[w_i] = frameBufferSize;
 	}
-
-	pGrabber->videoBufferRead[w_i] = false;
 
 	*ppPixelBuffer = pGrabber->pVideoBuffers[w_i];
 }
@@ -379,9 +454,8 @@ void AudioPostrender(void * pAudioData, uint8_t * pPcmBuffer, unsigned int chann
 	if (pGrabber == NULL || pGrabber->terminating || pGrabber->noAudio) return;
 
 	vlc_mutex_lock(&pGrabber->mutex);
-	int w_i = pGrabber->videoBufferWriteIndex;
-	int r_i = pGrabber->videoBufferReadIndex;
-	bool audioSampleRequested = pGrabber->audioSampleRequested;
+	int w_i = pGrabber->audioBufferWriteIndex;
+	int r_i = pGrabber->audioBufferReadIndex;
 	vlc_mutex_unlock(&pGrabber->mutex);
 	
 	if (!pGrabber->audioStartTimestamp)
@@ -395,6 +469,10 @@ void AudioPostrender(void * pAudioData, uint8_t * pPcmBuffer, unsigned int chann
 	pGrabber->audioSampleSampleCounts[w_i] = samples;
 	pGrabber->audioSampleBitsPerSample[w_i] = bitsPerSample;
 	pGrabber->audioBufferSizes[w_i] = size;
+
+	vlc_mutex_lock(&pGrabber->mutex);
+	pGrabber->audioBufferWasRead[w_i] = false;
+	vlc_mutex_unlock(&pGrabber->mutex);
 	
 	if (!pGrabber->paceControl)
 	{
@@ -410,19 +488,37 @@ void AudioPostrender(void * pAudioData, uint8_t * pPcmBuffer, unsigned int chann
 		
 		vlc_sem_post(&pGrabber->audioSampleReadySemaphore);
 	}
-	else if (audioSampleRequested)
+	else 
 	{
 		vlc_mutex_lock(&pGrabber->mutex);
-		pGrabber->audioTracks[r_i] = pGrabber->audioTracks[w_i];
 
-		pGrabber->audioBufferWriteIndex = r_i;
-		pGrabber->audioBufferReadIndex = w_i;
+		if (pGrabber->audioSampleRequested)
+		{
+			pGrabber->audioTracks[r_i] = pGrabber->audioTracks[w_i];
 
-		pGrabber->audioSampleRequested = false;
+			pGrabber->audioBufferWriteIndex = r_i;
+			pGrabber->audioBufferReadIndex = w_i;
+
+			pGrabber->audioSampleRequested = false;
+
+			vlc_sem_post(&pGrabber->audioSampleReadySemaphore);
+		}
+		else if (!pGrabber->audioBufferLocked)
+		{
+			pGrabber->audioBufferWriteIndex = r_i;
+			pGrabber->audioBufferReadIndex = w_i;
+		}
+		else
+		{
+			printf("Audio sample dropped.\r\n");
+		}
+
 		vlc_mutex_unlock(&pGrabber->mutex);
-
-		vlc_sem_post(&pGrabber->audioSampleReadySemaphore);
 	}
+
+	vlc_mutex_lock(&pGrabber->mutex);
+	pGrabber->audioBufferWriting = false;
+	vlc_mutex_unlock(&pGrabber->mutex);
 }
 
 void VideoPostrender(void * pVideoData, uint8_t *  pPixelBuffer, int width, int lines, int pixelPitch, size_t size, mtime_t pts)
@@ -433,7 +529,6 @@ void VideoPostrender(void * pVideoData, uint8_t *  pPixelBuffer, int width, int 
 	vlc_mutex_lock(&pGrabber->mutex);
 	int w_i = pGrabber->videoBufferWriteIndex;
 	int r_i = pGrabber->videoBufferReadIndex;
-	bool videoFrameRequested = pGrabber->videoFrameRequested;
 	vlc_mutex_unlock(&pGrabber->mutex);
 
 	if (!pGrabber->videoStartTimestamp)
@@ -447,6 +542,10 @@ void VideoPostrender(void * pVideoData, uint8_t *  pPixelBuffer, int width, int 
 	pGrabber->videoFrameBitsPerPixel[w_i] = pixelPitch;
 	pGrabber->videoFrameWidth[w_i] = width;
 	pGrabber->videoFrameLines[w_i] = lines;
+	
+	vlc_mutex_lock(&pGrabber->mutex);
+	pGrabber->videoBufferWasRead[w_i] = false;
+	vlc_mutex_unlock(&pGrabber->mutex);
 	
 	if (!pGrabber->paceControl)
 	{
@@ -463,19 +562,37 @@ void VideoPostrender(void * pVideoData, uint8_t *  pPixelBuffer, int width, int 
 			
 		vlc_sem_post(&pGrabber->videoFrameReadySemaphore);
 	}
-	else if (videoFrameRequested)
+	else
 	{
 		vlc_mutex_lock(&pGrabber->mutex);
-		pGrabber->videoTracks[r_i] = pGrabber->videoTracks[w_i];
 
-		pGrabber->videoBufferWriteIndex = r_i;
-		pGrabber->videoBufferReadIndex = w_i;
+		if (pGrabber->videoFrameRequested)
+		{
+			pGrabber->videoTracks[r_i] = pGrabber->videoTracks[w_i];
 
-		pGrabber->videoFrameRequested = false;
-		vlc_mutex_unlock(&pGrabber->mutex);
+			pGrabber->videoBufferWriteIndex = r_i;
+			pGrabber->videoBufferReadIndex = w_i;
+
+			pGrabber->videoFrameRequested = false;
 			
-		vlc_sem_post(&pGrabber->videoFrameReadySemaphore);
+			vlc_sem_post(&pGrabber->videoFrameReadySemaphore);
+		}
+		else if (!pGrabber->videoBufferLocked)
+		{
+			pGrabber->videoBufferWriteIndex = r_i;
+			pGrabber->videoBufferReadIndex = w_i;
+		}
+		else
+		{
+			printf("Video frame dropped.\r\n");
+		}
+
+		vlc_mutex_unlock(&pGrabber->mutex);
 	}
+
+	vlc_mutex_lock(&pGrabber->mutex);
+	pGrabber->videoBufferWriting = false;
+	vlc_mutex_unlock(&pGrabber->mutex);
 }
 
 void HandleMediaPlayerEvents(const struct libvlc_event_t * pEvent, void * pData)
