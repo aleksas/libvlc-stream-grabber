@@ -1,3 +1,5 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/7vf4u9wgylkvf9k1?svg=true)](https://ci.appveyor.com/project/aleksas/libvlc-stream-grabber)
+
 # libvlc-stream-grabber
 Access video frames and audio sample using libvlc smem module.
 
