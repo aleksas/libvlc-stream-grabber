@@ -1,0 +1,14 @@
+LIBRARY "VlcStreamGrabber.dll"
+	
+EXPORTS
+	StreamGrabberInit
+	StreamGrabberFree
+	StreamGrabberSetMedia
+
+	StreamGrabberGetVideoFrame
+	StreamGrabberGetAudioSample
+
+	StreamGrabberLockAudioBuffer
+	StreamGrabberUnlockAudioBuffer
+	StreamGrabberLockVideoBuffer
+	StreamGrabberUnlockVideoBuffer
