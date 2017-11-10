@@ -1,7 +1,7 @@
 #ifndef VLC_STREAM_GRABBER_H_INCLUDED
 #define VLC_STREAM_GRABBER_H_INCLUDED
 
-#include "libvlc_win.h"
+#include <libvlc_win.h>
 
 typedef struct VlcStreamGrabber_
 {

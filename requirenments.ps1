@@ -10,11 +10,11 @@ if(!(Test-Path -Path $destination )){
 }
 
 if(!(Test-Path -Path ".\~tmp\vlc\vlc-2.2.6.tar" )){
-	Invoke-Expression "& .\7z.exe -o`".\~tmp\vlc`" x `".\~tmp\vlc\vlc-2.2.6.tar.xz`""
+	Invoke-Expression "& 7z.exe -o`".\~tmp\vlc`" x `".\~tmp\vlc\vlc-2.2.6.tar.xz`""
 }
 
 if(!(Test-Path -Path ".\~tmp\vlc\vlc-2.2.6\" )){
-	Invoke-Expression "& .\7z.exe -o`".\~tmp\vlc`" x `".\~tmp\vlc\vlc-2.2.6.tar`""
+	Invoke-Expression "& 7z.exe -o`".\~tmp\vlc`" x `".\~tmp\vlc\vlc-2.2.6.tar`""
 }
 
 if(!(Test-Path -Path ".\include\vlc-2.2\vlc\" )){
@@ -30,7 +30,7 @@ if(!(Test-Path -Path $destination )){
 }
 
 if(!(Test-Path -Path ".\~tmp\vlc\vlc-2.2.6-win32\" )){
-	Invoke-Expression "& .\7z.exe -o`".\~tmp\vlc\vlc-2.2.6-win32`" x `"$destination`""
+	Invoke-Expression "& 7z.exe -o`".\~tmp\vlc\vlc-2.2.6-win32`" x `"$destination`""
 }
 
 if(!(Test-Path -Path ".\bin\x86\" )){
@@ -48,7 +48,7 @@ if(!(Test-Path -Path $destination )){
 }
 
 if(!(Test-Path -Path ".\~tmp\vlc\vlc-2.2.6-win64\" )){
-	Invoke-Expression "& .\7z.exe -o`".\~tmp\vlc\vlc-2.2.6-win64`" x `"$destination`""
+	Invoke-Expression "& 7z.exe -o`".\~tmp\vlc\vlc-2.2.6-win64`" x `"$destination`""
 }
 
 if(!(Test-Path -Path ".\bin\x64\" )){
@@ -57,4 +57,3 @@ if(!(Test-Path -Path ".\bin\x64\" )){
 	Copy-Item ".\~tmp\vlc\vlc-2.2.6-win64\vlc-2.2.6\libvlc*.dll" ".\bin\x64\"
 	Copy-Item ".\~tmp\vlc\vlc-2.2.6-win64\vlc-2.2.6\plugins\" ".\bin\x64\plugins\" -recurse
 }
-

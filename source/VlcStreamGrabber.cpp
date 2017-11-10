@@ -1,4 +1,4 @@
-#include "VlcStreamGrabber.h"
+#include <VlcStreamGrabber.h>
 
 void VideoPrerender(void  * pVideoData, uint8_t ** ppPixelBuffer, size_t frameBufferSize);
 void AudioPrerender(void  * pAudioData, uint8_t ** ppPcmBuffer, size_t pcmBufferSize);
