@@ -105,7 +105,7 @@ void StreamGrabberFree( VlcStreamGrabber * pGrabber )
 
 		if (pGrabber->pVlcMediaPlayer)
 		{
-			//libvlc_media_player_stop(pGrabber->pVlcMediaPlayer);
+			libvlc_media_player_stop(pGrabber->pVlcMediaPlayer);
 
 			pEventManager = libvlc_media_player_event_manager(pGrabber->pVlcMediaPlayer);
 			libvlc_event_detach(pEventManager, libvlc_MediaPlayerEncounteredError, HandleMediaPlayerEvents, pGrabber);
@@ -113,9 +113,9 @@ void StreamGrabberFree( VlcStreamGrabber * pGrabber )
 			libvlc_event_detach(pEventManager, libvlc_MediaPlayerStopped, HandleMediaPlayerEvents, pGrabber);
 			libvlc_event_detach(pEventManager, libvlc_MediaPlayerTimeChanged, HandleMediaPlayerEvents, pGrabber);
 			libvlc_event_detach(pEventManager, libvlc_MediaPlayerEndReached, HandleMediaPlayerEvents, pGrabber);
-
-			//libvlc_media_player_release(pGrabber->pVlcMediaPlayer);
-			//pGrabber->pVlcMediaPlayer = NULL;
+			
+			libvlc_media_player_release(pGrabber->pVlcMediaPlayer);
+			pGrabber->pVlcMediaPlayer = NULL;
 		}
 
 		vlc_mutex_destroy(&pGrabber->mutex);

@@ -180,6 +180,11 @@
     </ClCompile>
     <ClCompile Include="VlcStreamGrabberTest.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\source\VlcStreamGrabber.vcxproj">
+      <Project>{2ea4fd9c-b2ab-4812-89bd-42398c9919e8}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
